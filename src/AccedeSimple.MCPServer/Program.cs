@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using AccedeSimple.Domain;
 using ModelContextProtocol.Server;
 using Microsoft.Extensions.AI;
@@ -112,7 +113,7 @@ public sealed class FlightTool
 
             ## Parameters
 
-            {JsonSerializer.Serialize(parameters, new JsonSerializerOptions { WriteIndented = true })}
+            {{{JsonSerializer.Serialize(parameters, new JsonSerializerOptions { WriteIndented = true })}}}
 
             ## Generated Output
             
