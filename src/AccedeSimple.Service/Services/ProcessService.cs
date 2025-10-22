@@ -2,6 +2,7 @@
 using System.Text.Json;
 using AccedeSimple.Domain;
 using AccedeSimple.Service.ProcessSteps;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
@@ -17,14 +18,16 @@ public class ProcessService
     private readonly IChatClient _chatClient;
     private readonly UserSettings _userSettings;
     private readonly HttpClient _httpClient;
+    private readonly AIAgent _policyAgent;
 
     public ProcessService(
-        Kernel kernel, 
-        KernelProcess process, 
-        MessageService messageService, 
+        Kernel kernel,
+        KernelProcess process,
+        MessageService messageService,
         IChatClient chatClient,
         IOptions<UserSettings> userSettings,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        [FromKeyedServices("Policy")] AIAgent policyAgent)
     {
         _kernel = kernel;
         _process = process;
@@ -32,6 +35,7 @@ public class ProcessService
         _chatClient = chatClient;
         _userSettings = userSettings.Value;
         _httpClient = httpClientFactory.CreateClient("LocalGuide");
+        _policyAgent = policyAgent;
     }
 
     public async Task ActAsync(UserIntent userIntent, ChatItem userInput)
@@ -55,7 +59,10 @@ public class ProcessService
                 await _messageService.AddMessageAsync(new AssistantResponse(body), _userSettings.UserId);
                 break;
             case UserIntent.AskPolicyQuestions:
-                await _process.StartAsync(_kernel, new KernelProcessEvent { Id = nameof(PolicyInquiryStep.ProcessPolicyInquiryAsync), Data = userInput });
+                var policyResponse = await _policyAgent.RunAsync(userInput.ToChatMessage());
+                // Add the response to the message service
+                await _messageService.AddMessageAsync(new AssistantResponse(policyResponse.Text), _userSettings.UserId);
+                //await _process.StartAsync(_kernel, new KernelProcessEvent { Id = nameof(PolicyInquiryStep.ProcessPolicyInquiryAsync), Data = userInput });
                 break;
             case UserIntent.StartTravelPlanning:
                 await _process.StartAsync(_kernel, new KernelProcessEvent { Id = nameof(TravelPlanningStep.PlanTripAsync), Data = userInput });

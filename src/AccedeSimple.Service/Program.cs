@@ -7,9 +7,8 @@ using AccedeSimple.Service.ProcessSteps;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI.Hosting;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using AccedeSimple.Service;
@@ -22,6 +21,8 @@ using System.Collections.Concurrent;
 using AccedeSimple.Service.Services;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using Microsoft.Agents.AI;
+using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,7 +64,20 @@ kernel.Services.AddEmbeddingGenerator(modelName: "text-embedding-3-small");
 kernel.Services.AddSqliteCollection<int, Document>("Documents", "Data Source=documents.db");
 kernel.Services.AddTransient<ProcessService>();
 kernel.Services.AddTransient<MessageService>();
-kernel.Services.AddTransient<SearchService>();
+kernel.Services.AddSingleton<SearchService>();
+
+builder.AddAIAgent("Policy", (sp, name) =>
+{
+    return sp.GetRequiredService<IChatClient>().CreateAIAgent("""
+            Process the policy inquiry.
+
+            Only use the search results to answer the user's question.
+
+            Do not provide any additional information or context.
+
+            Provide a summary of the policy based on the users' input and the search results from the policy documents.
+            """, name, tools: [AIFunctionFactory.Create(sp.GetRequiredService<SearchService>().SearchAsync)]);
+});
 
 builder.Services.AddTravelProcess();
 
