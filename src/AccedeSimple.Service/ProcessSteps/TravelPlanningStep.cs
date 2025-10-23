@@ -11,19 +11,23 @@ using AccedeSimple.Service.Services;
 using Microsoft.Extensions.Options;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Azure.AI.Agents.Persistent;
+using Microsoft.Agents.AI.Workflows;
 
 namespace AccedeSimple.Service.ProcessSteps;
 
 public class TravelPlanningStep : KernelProcessStep
 {
     private StateStore _state = new();
-    private ChatClientAgent _createTripAgent;
+    private AIAgent _createTripAgent;
+    private JsonSerializerOptions _serializationOptions;
+    private ChatClientAgentRunOptions _createTripRunOptions;
     private readonly IChatClient _chatClient;
     private readonly ILogger<TravelPlanningStep> _logger;
     private readonly IMcpClient _mcpClient;
 
     private readonly MessageService _messageService;
-    
+
     private readonly UserSettings _userSettings;
 
 
@@ -42,8 +46,15 @@ public class TravelPlanningStep : KernelProcessStep
         _messageService = messageService;
         _userSettings = userSettings.Value;
         _state = stateStore;
-        //as ChatClientAgent so I can call RunAsync<>. Surely there is a better way?
-        _createTripAgent = createTripAgent as ChatClientAgent;
+        _createTripAgent = createTripAgent;
+
+        _serializationOptions = new JsonSerializerOptions(JsonSerializerOptions.Default);
+        _serializationOptions.PropertyNameCaseInsensitive = true;
+
+        _createTripRunOptions = new ChatClientAgentRunOptions(new ChatOptions()
+        {
+            ResponseFormat = ChatResponseFormat.ForJsonSchema(schemaName: "TripRequestSchema", schema: AIJsonUtilities.CreateJsonSchema(typeof(TripRequest)))
+        });
     }
 
 
@@ -55,7 +66,7 @@ public class TravelPlanningStep : KernelProcessStep
     {
 
         // Generate new trip parameters
-        var tripParameterPrompt = 
+        var tripParameterPrompt =
             $"""
             You are a travel assistant. Your task is to generate trip parameters based on the user input.
 
@@ -91,7 +102,7 @@ public class TravelPlanningStep : KernelProcessStep
                 Generate at least 3 different trip options with a detailed breakdown of each option.
 
                 Ensure that dates are formatted correctly.
-                """)                   
+                """)
         ];
 
         var tools = await _mcpClient.ListToolsAsync();
@@ -100,10 +111,11 @@ public class TravelPlanningStep : KernelProcessStep
 
         var response = await _chatClient.GetResponseAsync<List<TripOption>>(
             messages,
-            new ChatOptions { 
+            new ChatOptions
+            {
                 Temperature = 0.7f,
-                Tools = [.. tools ]
-        });
+                Tools = [.. tools]
+            });
 
         response.TryGetResult(out var result);
 
@@ -111,7 +123,6 @@ public class TravelPlanningStep : KernelProcessStep
         _state.Set("trip-options", result);
 
         // Write the result to the chat stream
-        // _chatStream.AddMessage();
         await _messageService.AddMessageAsync(
             new CandidateItineraryChatItem("Here are trips matching your requirements.", result),
             _userSettings.UserId);
@@ -127,10 +138,9 @@ public class TravelPlanningStep : KernelProcessStep
         ChatItem userInput,
         KernelProcessStepContext context)
     {
-
         var options = _state.Get("trip-options").Value as List<TripOption>;
 
-        var tripRequest = 
+        var tripRequest =
             $"""
             # Trip Options
             {JsonSerializer.Serialize(options)}
@@ -139,16 +149,30 @@ public class TravelPlanningStep : KernelProcessStep
             {userInput.Text}
             """;
 
-        var response = await _createTripAgent.RunAsync<TripRequest>(tripRequest);
+        var runResult = await _createTripAgent.RunAsync(message: tripRequest, thread: null, options: _createTripRunOptions);
 
-        _state.Set("trip-requests", new List<TripRequest> { response.Result });
+        if (runResult.TryDeserialize<TripRequest>(_serializationOptions, out var tripRequestResult))
+        {
+            _logger.LogInformation("Trip request created successfully.");
+            _state.Set("trip-requests", new List<TripRequest> { tripRequestResult });
 
-        // Write the result to the chat stream
-        // _chatStream.AddMessage(new AssistantResponse("Admin Approval Needed"));
-        await _messageService.AddMessageAsync(
-            new AssistantResponse("Trip request created. Awaiting admin approval."),
-            _userSettings.UserId);
+            // Write the result to the chat stream
+            await _messageService.AddMessageAsync(
+                new AssistantResponse("Trip request created. Awaiting admin approval."),
+                _userSettings.UserId);
 
-        return response.Result;
+            return tripRequestResult;
+        }
+        else
+        {
+            _logger.LogError("Failed to deserialize trip request. Raw response: {Response}", runResult.ToString());
+
+            // Notify user of the failure
+            await _messageService.AddMessageAsync(
+                new AssistantResponse("I'm having trouble processing your trip request. Please try again or contact support."),
+                _userSettings.UserId);
+
+            throw new InvalidOperationException($"Failed to deserialize trip request from agent response: {runResult}");
+        }
     }
 }
