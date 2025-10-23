@@ -79,6 +79,13 @@ builder.AddAIAgent("Policy", (sp, name) =>
             """, name, tools: [AIFunctionFactory.Create(sp.GetRequiredService<SearchService>().SearchAsync)]);
 });
 
+builder.AddAIAgent(
+    name: "CreateTripRequest",
+    instructions: """
+    You are a travel assistant. Create a formal trip request based on the selected travel option.
+    Include all necessary details for approval.
+    """);
+
 builder.Services.AddTravelProcess();
 
 var app = builder.Build();

@@ -9,13 +9,15 @@ using Microsoft.AspNetCore.Mvc;
 using Azure;
 using AccedeSimple.Service.Services;
 using Microsoft.Extensions.Options;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AccedeSimple.Service.ProcessSteps;
 
 public class TravelPlanningStep : KernelProcessStep
 {
     private StateStore _state = new();
-    
+    private ChatClientAgent _createTripAgent;
     private readonly IChatClient _chatClient;
     private readonly ILogger<TravelPlanningStep> _logger;
     private readonly IMcpClient _mcpClient;
@@ -31,7 +33,8 @@ public class TravelPlanningStep : KernelProcessStep
         IMcpClient mcpClient,
         MessageService messageService,
         StateStore stateStore,
-        IOptions<UserSettings> userSettings)
+        IOptions<UserSettings> userSettings,
+        [FromKeyedServices("CreateTripRequest")] AIAgent createTripAgent)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -39,6 +42,8 @@ public class TravelPlanningStep : KernelProcessStep
         _messageService = messageService;
         _userSettings = userSettings.Value;
         _state = stateStore;
+        //as ChatClientAgent so I can call RunAsync<>. Surely there is a better way?
+        _createTripAgent = createTripAgent as ChatClientAgent;
     }
 
 
@@ -121,14 +126,12 @@ public class TravelPlanningStep : KernelProcessStep
     public async Task<TripRequest> CreateTripRequestAsync(
         ChatItem userInput,
         KernelProcessStepContext context)
-    {        
+    {
 
         var options = _state.Get("trip-options").Value as List<TripOption>;
-        var tripRequestPrompt = 
-            $"""
-            You are a travel assistant. Create a formal trip request based on the selected travel option.
-            Include all necessary details for approval.
 
+        var tripRequest = 
+            $"""
             # Trip Options
             {JsonSerializer.Serialize(options)}
 
@@ -136,11 +139,9 @@ public class TravelPlanningStep : KernelProcessStep
             {userInput.Text}
             """;
 
-        var tripRequestResponse = await _chatClient.GetResponseAsync<TripRequest>(tripRequestPrompt);
-        
-        tripRequestResponse.TryGetResult(out var tripRequest);
+        var response = await _createTripAgent.RunAsync<TripRequest>(tripRequest);
 
-        _state.Set("trip-requests", new List<TripRequest> { tripRequest });
+        _state.Set("trip-requests", new List<TripRequest> { response.Result });
 
         // Write the result to the chat stream
         // _chatStream.AddMessage(new AssistantResponse("Admin Approval Needed"));
@@ -148,6 +149,6 @@ public class TravelPlanningStep : KernelProcessStep
             new AssistantResponse("Trip request created. Awaiting admin approval."),
             _userSettings.UserId);
 
-        return tripRequest;
+        return response.Result;
     }
 }
