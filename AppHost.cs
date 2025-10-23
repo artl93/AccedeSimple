@@ -1,3 +1,14 @@
+#:sdk Aspire.AppHost.Sdk@9.5.1
+#:package Aspire.Hosting.AppHost@9.5.1
+#:package Aspire.Hosting.Azure.CognitiveServices@9.5.1
+#:package Aspire.Hosting.Azure.Storage@9.5.1
+#:package Aspire.Hosting.NodeJS@9.5.1
+#:package Aspire.Hosting.Python@9.5.1
+#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.5.1
+#:project src/AccedeSimple.MCPServer/AccedeSimple.MCPServer.csproj
+#:project src/AccedeSimple.Service/AccedeSimple.Service.csproj
+#:property UserSecretsId=413a2201-5af2-4940-90a4-d0cc6cd5c244
+
 #pragma warning disable
 using Microsoft.Extensions.Hosting;
 
@@ -12,7 +23,7 @@ var modelName = "gpt-4.1";
 
 // Configure Azure Services
 var azureStorage = builder.AddAzureStorage("storage");
-var openai = 
+var openai =
     builder.AddAzureOpenAI("openai")
         .AsExisting(azureOpenAIResource, azureOpenAIResourceGroup);
 
@@ -21,7 +32,7 @@ if (builder.Environment.IsDevelopment())
     azureStorage.RunAsEmulator(c => {
         c.WithDataBindMount();
         c.WithLifetime(ContainerLifetime.Persistent);
-    });    
+    });
 }
 
 // Configure projects
@@ -33,7 +44,7 @@ var mcpServer =
 
 
 var pythonApp =
-    builder.AddPythonApp("localguide", "../localguide", "main.py")
+    builder.AddPythonApp("localguide", "src/localguide", "main.py")
         .WithHttpEndpoint(env: "PORT", port: 8000, isProxied: false)
         .WithEnvironment("AZURE_OPENAI_ENDPOINT", azureOpenAIEndpoint)
         .WithEnvironment("MODEL_NAME", modelName)
@@ -57,7 +68,7 @@ var backend =
         .WithEnvironment("AZURE_AI_FOUNDRY_PROJECT", azureAIFoundryProject)
         .WaitFor(openai);
 
-builder.AddNpmApp("webui", "../webui")
+builder.AddNpmApp("webui", "src/webui")
     .WithNpmPackageInstallation()
     .WithHttpEndpoint(env: "PORT", port: 35_369, isProxied: false)
     .WithEnvironment("BACKEND_URL", backend.GetEndpoint("http"))
