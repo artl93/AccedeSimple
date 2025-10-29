@@ -152,8 +152,6 @@ public class ProcessService
         string? tripId,
         object? response)
     {
-        CheckpointInfo? lastCheckpointInfo = null;
- 
 
         if(response != null)
         {
@@ -174,9 +172,10 @@ public class ProcessService
             {
                 case RequestInfoEvent requestInfoEvt:
                     // Hit a RequestPort - handle it but continue processing events until idle
+                    await HandleRequestInfoAndPauseAsync(requestInfoEvt, checkpointedRun.LastCheckpoint.RunId);
                     _logger.LogInformation("Workflow paused at RequestPort {PortId}", requestInfoEvt.Request.PortInfo.PortId);
-                    await HandleRequestInfoAndPauseAsync(requestInfoEvt, lastCheckpointInfo, tripId);
-                    break;
+                    _stateStore.Set($"checkpoint-info:{checkpointedRun.LastCheckpoint.RunId}", checkpointedRun.LastCheckpoint);
+                    return;
 
                 case WorkflowOutputEvent outputEvt:
                     _logger.LogInformation("Workflow completed with output");
@@ -199,16 +198,16 @@ public class ProcessService
                     return;
             }
 
-            lastCheckpointInfo = checkpointedRun.LastCheckpoint;
-            // After processing each event, check if the workflow is idle
-            var status = await checkpointedRun.Run.GetStatusAsync();
-            _logger.LogInformation("Current workflow status: {Status}", status);
-            if (status == RunStatus.Idle || (status == RunStatus.PendingRequests))
-            {
-                _stateStore.Set($"checkpoint-info:{lastCheckpointInfo.RunId}", lastCheckpointInfo);
-                _logger.LogInformation("Workflow idle or pending data, exiting event loop");
-                return;
-            }
+            //TODO: I expected to be able to run to idle but that never seems to happen.
+            // Not sure if we should do the return above or make something like this part work.
+            //     var status = await checkpointedRun.Run.GetStatusAsync();
+            //     _logger.LogInformation("Current workflow status: {Status}", status);
+            //     if (status == RunStatus.Idle)
+            //     {
+            //         _stateStore.Set($"checkpoint-info:{lastCheckpointInfo.RunId}", lastCheckpointInfo);
+            //         _logger.LogInformation("Workflow idle or pending data, exiting event loop");
+            //         return;
+            //     }
         }
 
         if (tripId != null)
@@ -236,13 +235,13 @@ public class ProcessService
     /// <param name="requestInfoEvt">The RequestInfoEvent from the workflow</param>
     /// <param name="checkpointInfo">CheckpointInfo metadata (contains RunId and CheckpointId)</param>
     /// <param name="tripId">The trip ID from the previous pause (for subsequent pauses in same workflow)</param>
-    private async Task HandleRequestInfoAndPauseAsync(RequestInfoEvent requestInfoEvt, CheckpointInfo? checkpointInfo, string? tripId = null)
+    private async Task HandleRequestInfoAndPauseAsync(RequestInfoEvent requestInfoEvt, string tripId)
     {
         var request = requestInfoEvt.Request;
 
-        if (checkpointInfo == null)
+        if (tripId == null)
         {
-            _logger.LogError("No CheckpointInfo available when pausing at RequestPort {PortId}", request.PortInfo.PortId);
+            _logger.LogError("No trip ID available when pausing at RequestPort {PortId}", request.PortInfo.PortId);
             return;
         }
 
@@ -253,10 +252,10 @@ public class ProcessService
                 // Create the message with RunId as its Id - this ensures consistent workflow identity
                 var candidateMessage = new CandidateItineraryChatItem("Here are trips matching your requirements.", tripOptions)
                 {
-                    Id = checkpointInfo.RunId
+                    Id = tripId
                 };
                 // Store the ExternalRequest so we can respond when user resumes
-                _stateStore.Set($"pending-request:{checkpointInfo.RunId}", request);
+                _stateStore.Set($"pending-request:{tripId}", request);
 
                 // Send trip options to user
                 await _messageService.AddMessageAsync(candidateMessage, _userSettings.UserId);
@@ -265,7 +264,7 @@ public class ProcessService
             case "AdminApproval" when request.DataAs<TripRequest>() is { } tripRequest:
 
                 // Store the ExternalRequest so we can respond when admin approves/rejects
-                _stateStore.Set($"pending-request:{checkpointInfo.RunId}", request);
+                _stateStore.Set($"pending-request:{tripId}", request);
 
                 // Store trip request in global StateStore list for admin page to display pending approvals
                 var existingRequests = _stateStore.GetAs<List<TripRequest>>("trip-requests") ?? new List<TripRequest>();
