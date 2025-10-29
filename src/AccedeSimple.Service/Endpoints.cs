@@ -282,7 +282,6 @@ public static class Endpoints
     {
         try
         {
-
             // Handle the message based on its type
             if (chatItem is AssistantResponse assistantResponse)
             {
@@ -311,10 +310,6 @@ public static class Endpoints
                 await response.WriteAsync($"data: {serializedMessage}\n\n", cancellationToken);
                 await response.Body.FlushAsync(cancellationToken);
             }
-
-            // Handle completion
-            await response.WriteAsync($"event: complete\ndata: {{}}\n\n", cancellationToken);
-            await response.Body.FlushAsync(cancellationToken);
         }
         catch (OperationCanceledException) { }
     }
