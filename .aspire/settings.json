@@ -1,6 +1,6 @@
 {
   "features": {
-    "singleFileAppHostEnabled": true
+    "singleFileAppHostEnabled": false
   },
-  "appHostPath": "../AppHost.cs"
+  "appHostPath": "../src/AccedeSimple.AppHost/AppHost.csproj"
 }
