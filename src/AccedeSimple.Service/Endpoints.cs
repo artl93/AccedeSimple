@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
 using OpenTelemetry.Trace;
 using TextContent = Microsoft.Extensions.AI.TextContent;
 

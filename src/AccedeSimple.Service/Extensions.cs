@@ -4,7 +4,6 @@ using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 using AccedeSimple.Service.Executors;
 using AccedeSimple.Service.Services;
-using Microsoft.SemanticKernel;
 using AccedeSimple.Domain;
 using ModelContextProtocol.Client;
 using Microsoft.Agents.AI.Workflows;

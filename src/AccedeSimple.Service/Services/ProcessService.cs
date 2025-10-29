@@ -1,4 +1,3 @@
-#pragma warning disable
 using System.Text.Json;
 using AccedeSimple.Domain;
 using AccedeSimple.Service.Executors;
@@ -6,7 +5,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Serialization;
 
 namespace AccedeSimple.Service.Services;
 
@@ -301,4 +299,3 @@ public class ProcessService
         await Task.CompletedTask;
     }
 }
-#pragma warning restore
