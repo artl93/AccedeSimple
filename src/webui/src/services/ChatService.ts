@@ -158,13 +158,13 @@ class ChatService {
         return await response.json();
     }
 
-    async selectItinerary(messageId: string, optionId: string): Promise<void> {
+    async selectItinerary(tripId: string, optionId: string): Promise<void> {
         const response = await fetch(`${this.backendUrl}/chat/select-itinerary`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ messageId, optionId })
+            body: JSON.stringify({ tripId, optionId })
         });
 
         if (!response.ok) {

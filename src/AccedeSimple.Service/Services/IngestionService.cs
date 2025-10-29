@@ -67,7 +67,7 @@ public record class Document
     public int Id { get; set; }
 
     [VectorStoreData]
-    public string FileName { get; set; }
+    public required string FileName { get; set; }
 
     [VectorStoreData]
     public int PageNumber { get; set; }

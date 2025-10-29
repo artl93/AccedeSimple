@@ -143,7 +143,7 @@ public sealed class TripRequestUpdated(string text) : ChatItem(text)
 // Itinerary selected messages
 public class ItinerarySelectedChatItem(string text) : ChatItem(text)
 {
-    public required string MessageId { get; init; }
+    public required string TripId { get; init; }
 
     public required string OptionId { get; init; }
 

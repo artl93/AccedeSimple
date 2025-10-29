@@ -2,67 +2,51 @@
 using Azure.Identity;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
-using AccedeSimple.Service.ProcessSteps;
+using AccedeSimple.Service.Executors;
+using AccedeSimple.Service.Services;
 using Microsoft.SemanticKernel;
 using AccedeSimple.Domain;
 using ModelContextProtocol.Client;
+using Microsoft.Agents.AI.Workflows;
+using AccedeSimple.Service;
 
 public static class Extensions
 {
 
-    public static IServiceCollection AddTravelProcess(
+    public static IServiceCollection AddTravelWorkflow(
         this IServiceCollection services)
     {
-        // Add process steps
-        services.AddTransient<TravelPlanningStep>();
-        services.AddTransient<ApprovalStep>();
-        services.AddTransient<ReceiptProcessingStep>();
-        services.AddTransient<ExpenseReportStep>();
+        // Register executors
+        services.AddTransient<TravelPlanningExecutor>();
+        services.AddTransient<TripRequestCreationExecutor>();
+        services.AddTransient<ApprovalResponseExecutor>();
 
-        // Configure workflows
-        services.AddTransient<KernelProcess>(sp =>
+        // Build the main travel workflow with RequestPorts for human-in-the-loop
+        // This creates a unified workflow with checkpointing support
+        services.AddTransient<Microsoft.Agents.AI.Workflows.Workflow>(sp =>
         {
-            var processBuilder = new ProcessBuilder("TravelProcess");
+            // Get all executors
+            var travelPlanning = sp.GetRequiredService<TravelPlanningExecutor>();
+            var tripRequestCreation = sp.GetRequiredService<TripRequestCreationExecutor>();
+            var approvalResponse = sp.GetRequiredService<ApprovalResponseExecutor>();
 
-            // Define steps
-            var planStep = processBuilder.AddStepFromType<TravelPlanningStep>("TravelPlanningStep");
-            var approvalStep = processBuilder.AddStepFromType<ApprovalStep>("ApprovalStep");
-            var receiptStep = processBuilder.AddStepFromType<ReceiptProcessingStep>("ReceiptProcessingStep");
-            var expenseReportStep = processBuilder.AddStepFromType<ExpenseReportStep>("ExpenseReportStep");
-            var policyInquiryStep = processBuilder.AddStepFromType<PolicyInquiryStep>("PolicyInquiryStep");
+            // Create RequestPorts for human-in-the-loop interactions
+            // UserSelectionPort: sends trip options to user, waits for their selection
+            var userSelectionPort = RequestPort.Create<List<TripOption>, ItinerarySelectedChatItem>("UserSelection");
 
-            // Start travel planning when a new request comes in
-            processBuilder
-                .OnInputEvent(nameof(TravelPlanningStep.PlanTripAsync))
-                .SendEventTo(new(planStep, nameof(TravelPlanningStep.PlanTripAsync), "userInput"));
+            // AdminApprovalPort: sends trip request to admin, waits for approval decision
+            var adminApprovalPort = RequestPort.Create<TripRequest, TripRequestResult>("AdminApproval");
 
-            // When user selects an option, request approval from admin
-            // NOTE: I think this needs to have a different name to avoid confusion with the previous event
-            processBuilder
-                .OnInputEvent(nameof(TravelPlanningStep.CreateTripRequestAsync))
-                .SendEventTo(new(planStep, nameof(TravelPlanningStep.CreateTripRequestAsync), "userInput"));
+            // Build workflow: TravelPlanning → UserSelectionPort → TripRequestCreation → AdminApprovalPort → ApprovalResponse
+            var travelWorkflow = new WorkflowBuilder(travelPlanning)
+                .AddEdge(travelPlanning, userSelectionPort)
+                .AddEdge(userSelectionPort, tripRequestCreation)
+                .AddEdge(tripRequestCreation, adminApprovalPort)
+                .AddEdge(adminApprovalPort, approvalResponse)
+                .WithOutputFrom(approvalResponse)
+                .Build();
 
-            // Handle admin approval
-            processBuilder
-                .OnInputEvent(nameof(ApprovalStep.HandleApprovalResponseAsync))
-                .SendEventTo(new (approvalStep, nameof(ApprovalStep.HandleApprovalResponseAsync)));
-
-            // Process receipts
-            processBuilder
-                .OnInputEvent(nameof(ReceiptProcessingStep.ProcessReceiptsAsync))
-                .SendEventTo(new(receiptStep, nameof(ReceiptProcessingStep.ProcessReceiptsAsync), "userInput"));
-
-            // Generate expense report
-            processBuilder
-                .OnInputEvent(nameof(ExpenseReportStep.GenerateExpenseReportAsync))
-                .SendEventTo(new(expenseReportStep, nameof(ExpenseReportStep.GenerateExpenseReportAsync)));
-
-            // Handle policy inquiries
-            processBuilder
-                .OnInputEvent(nameof(PolicyInquiryStep.ProcessPolicyInquiryAsync))
-                .SendEventTo(new(policyInquiryStep, nameof(PolicyInquiryStep.ProcessPolicyInquiryAsync), "userInput"));
-
-            return processBuilder.Build();
+            return travelWorkflow;
         });
 
         return services;

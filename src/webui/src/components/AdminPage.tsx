@@ -33,10 +33,10 @@ const AdminPage: React.FC = () => {
     }, []);
 
     // Submit a result for a request
-    const submitResult = async (requestId: string, status: TripRequestStatus) => {
+    const submitResult = async (tripId: string, status: TripRequestStatus) => {
         setSubmitting(true);
         try {
-            await adminService.submitResult(requestId, status, notes);
+            await adminService.submitResult(tripId, status, notes);
             // Refresh the list after submission
             await loadRequests();
             setSelectedRequest(null);
@@ -98,12 +98,12 @@ const AdminPage: React.FC = () => {
                             <div className="requests-container">
                                 <div className="requests-list">
                                     {requests.map((request) => (
-                                        <div 
-                                            key={request.requestId} 
-                                            className={`request-item ${selectedRequest?.requestId === request.requestId ? 'selected' : ''}`}
+                                        <div
+                                            key={request.tripId}
+                                            className={`request-item ${selectedRequest?.tripId === request.tripId ? 'selected' : ''}`}
                                             onClick={() => setSelectedRequest(request)}
                                         >
-                                            <div className="request-id">ID: {request.requestId}</div>
+                                            <div className="request-id">ID: {request.tripId}</div>
                                             <div className="request-destination">
                                                 {request.tripOption.flights.length > 0 && (
                                                     <span>{request.tripOption.flights[0].origin} → {request.tripOption.flights[request.tripOption.flights.length-1].destination}</span>
@@ -210,16 +210,16 @@ const AdminPage: React.FC = () => {
                                             </div>
                                             
                                             <div className="approval-buttons">
-                                                <button 
+                                                <button
                                                     className="approve-button"
-                                                    onClick={() => submitResult(selectedRequest.requestId, TripRequestStatus.Approved)}
+                                                    onClick={() => submitResult(selectedRequest.tripId, TripRequestStatus.Approved)}
                                                     disabled={submitting}
                                                 >
                                                     Approve
                                                 </button>
-                                                <button 
+                                                <button
                                                     className="reject-button"
-                                                    onClick={() => submitResult(selectedRequest.requestId, TripRequestStatus.Rejected)}
+                                                    onClick={() => submitResult(selectedRequest.tripId, TripRequestStatus.Rejected)}
                                                     disabled={submitting}
                                                 >
                                                     Reject

@@ -4,7 +4,7 @@
 #:package Aspire.Hosting.Azure.Storage@9.5.1
 #:package Aspire.Hosting.NodeJS@9.5.1
 #:package Aspire.Hosting.Python@9.5.1
-#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.5.1
+#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.6.0
 #:project src/AccedeSimple.MCPServer/AccedeSimple.MCPServer.csproj
 #:project src/AccedeSimple.Service/AccedeSimple.Service.csproj
 #:property UserSecretsId=413a2201-5af2-4940-90a4-d0cc6cd5c244

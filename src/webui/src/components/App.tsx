@@ -258,7 +258,7 @@ const App: React.FC = () => {
     };
 
     // Function to handle itinerary selection
-    const selectItinerary = async (messageId: string, optionId: string) => {
+    const selectItinerary = async (tripId: string, optionId: string) => {
         try {
             // Show loading message
             setMessages(prevMessages => [
@@ -267,15 +267,15 @@ const App: React.FC = () => {
             ]);
 
             // Send the selection to the API
-            await chatService.selectItinerary(messageId, optionId);
+            await chatService.selectItinerary(tripId, optionId);
         } catch (error) {
             console.error('Error selecting itinerary:', error);
 
             // Show error message
             setMessages(prev =>
                 prev.map(msg =>
-                    msg.id === loadingIndicatorId ? 
-                    { ...msg, text: 'There was an error processing your selection. Please try again.' } : 
+                    msg.id === loadingIndicatorId ?
+                    { ...msg, text: 'There was an error processing your selection. Please try again.' } :
                     msg
                 )
             );

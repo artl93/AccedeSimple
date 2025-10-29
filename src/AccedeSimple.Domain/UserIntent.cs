@@ -18,11 +18,5 @@ public enum UserIntent
     StartTravelPlanning,
     
     [Description("Request for trip approval from admin")]
-    StartTripApproval,
-    
-    [Description("Extract information from receipts")]
-    ProcessReceipts,
-
-    [Description("Generate an expense report based on receipts")]
-    GenerateExpenseReport,
+    StartTripApproval
 }

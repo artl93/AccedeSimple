@@ -28,13 +28,13 @@ class AdminService {
         }
     }
 
-    async submitResult(requestId: string, status: TripRequestStatus, notes?: string): Promise<void> {
+    async submitResult(tripId: string, status: TripRequestStatus, notes?: string): Promise<void> {
         try {
             const result: TripRequestResult = {
-                requestId,
+                tripId,
                 status,
                 approvalNotes: notes || null,
-                processedTime: new Date().toISOString()
+                processedDateTime: new Date().toISOString()
             };
 
             const response = await fetch(`${this.backendUrl}/admin/requests/approval`, {

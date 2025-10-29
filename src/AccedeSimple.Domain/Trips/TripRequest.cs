@@ -8,13 +8,13 @@ namespace AccedeSimple.Domain;
 public record TripRequest(
     [Required]
     [StringLength(50)]
-    [Description("Unique identifier for the request")]
-    string RequestId,
-    
+    [Description("Unique identifier for the trip")]
+    string TripId,
+
     [Required]
     [Description("Selected trip option to be booked")]
     TripOption TripOption,
-    
+
     [Description("Additional booking instructions or requirements")]
     string? AdditionalNotes = null);
 
@@ -39,15 +39,15 @@ public record TripRequestResult(
     [Required]
     [StringLength(50)]
     [Description("Reference to the original trip request")]
-    string RequestId,
-    
+    string TripId,
+
     [Required]
     [Description("Current status of the trip request")]
     TripRequestStatus Status,
-    
+
     [Description("Notes from the approval process")]
     string? ApprovalNotes,
-    
+
     [Required]
     [Description("Date and time when the request was processed")]
     DateTime ProcessedDateTime);
