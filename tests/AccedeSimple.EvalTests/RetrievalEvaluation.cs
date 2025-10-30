@@ -58,7 +58,22 @@ namespace AccedeSimple.EvalTests
             });
 
             services.AddEmbeddingGenerator(modelName: "text-embedding-3-small");
-            services.AddSqliteCollection<int, Document>("Documents", "Data Source=documents.db");
+
+            // Add VectorStore for use with VectorStoreWriter
+            services.AddSingleton<VectorStore>(sp =>
+            {
+                var embeddingGenerator = sp.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
+                return new Microsoft.SemanticKernel.Connectors.SqliteVec.SqliteVectorStore("Data Source=documents.db", new()
+                {
+                    EmbeddingGenerator = embeddingGenerator
+                });
+            });
+
+            // Add ingestion pipeline components
+            services.AddSingleton<PdfPigReader>();
+            services.AddSingleton<Microsoft.ML.Tokenizers.Tokenizer>(sp =>
+                Microsoft.ML.Tokenizers.TiktokenTokenizer.CreateForModel("gpt-4"));
+
             services.AddTransient<SearchService>();
             services.AddTransient<IngestionService>();
 
@@ -77,10 +92,10 @@ namespace AccedeSimple.EvalTests
             // Search the vector store for relevant chunks
             var userQuery = "What expenses cannot be reimbursed?";
 
-            List<Document> docs = [];
-            await foreach (var doc in searchService.SearchAsync(userQuery))
+            List<string> chunks = [];
+            await foreach (var chunk in searchService.SearchAsync(userQuery))
             {
-                docs.Add(doc);
+                chunks.Add(chunk);
             }
 
             // Run the retrieval evaluation on the results
@@ -104,7 +119,7 @@ namespace AccedeSimple.EvalTests
             var evalResult = await scenarioRun.EvaluateAsync(
                 new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, userQuery),
                 new ChatResponse(),
-                [new RetrievalEvaluatorContext(docs.Select(r => r.Text!))]
+                [new RetrievalEvaluatorContext(chunks)]
             );
 
             // flush results to disk

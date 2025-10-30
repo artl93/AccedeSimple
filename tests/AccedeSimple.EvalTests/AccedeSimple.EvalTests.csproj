@@ -26,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\AccedeSimple.ServiceDefaults\AccedeSimple.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\src\AccedeSimple.Service\AccedeSimple.Service.csproj" />
+    <ProjectReference Include="..\..\src\AccedeSimple.ServiceDefaults\AccedeSimple.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\AccedeSimple.Service\AccedeSimple.Service.csproj" />
   </ItemGroup>
 
   <ItemGroup>

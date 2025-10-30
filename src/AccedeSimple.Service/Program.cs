@@ -40,9 +40,9 @@ builder.Services
     .AddChatClient(modelName: Environment.GetEnvironmentVariable("MODEL_NAME") ?? "gpt-4o-mini")
     .UseFunctionInvocation();
 
-builder.Services.AddEmbeddingGenerator(modelName: "text-embedding-3-small");
+builder.Services.AddEmbeddingGenerator(modelName: EmbeddingModel.NAME);
 
-// Add SQLite vector store and collection
+// Add SQLite vector store
 builder.Services.AddSingleton<VectorStore>(sp =>
 {
     var embeddingGenerator = sp.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
@@ -50,12 +50,6 @@ builder.Services.AddSingleton<VectorStore>(sp =>
     {
         EmbeddingGenerator = embeddingGenerator
     });
-});
-
-builder.Services.AddSingleton<VectorStoreCollection<int, Document>>(sp =>
-{
-    var vectorStore = sp.GetRequiredService<VectorStore>();
-    return ((SqliteVectorStore)vectorStore).GetCollection<int, Document>("Documents");
 });
 
 // Register ingestion pipeline components
@@ -92,9 +86,8 @@ app.MapEndpoints();
 
 app.Run();
 
-public class UserSettings
+public static class EmbeddingModel
 {
-    public string UserId { get; set; }
-    public string AdminUserId { get; set; }
-
+    public const string NAME = "text-embedding-3-small";
+    public const int DIMENSION = 1536;
 }
