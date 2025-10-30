@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DataIngestion;
 using Microsoft.Extensions.DataIngestion.Chunkers;
 using Microsoft.Extensions.VectorData;
@@ -9,17 +10,20 @@ public class IngestionService(
     VectorStore vectorStore,
     ILoggerFactory loggerFactory,
     PdfPigReader reader,
-    Tokenizer tokenizer)
+    Tokenizer tokenizer,
+    IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator)
 {
     public async Task IngestAsync(string sourceDirectory)
     {
-        // Create chunker with injected tokenizer
+        // Create semantic chunker - groups content by topic similarity
         var chunkerOptions = new IngestionChunkerOptions(tokenizer)
         {
-            MaxTokensPerChunk = 200,
-            OverlapTokens = 0
+            MaxTokensPerChunk = 512,
+            OverlapTokens = 50        // Small overlap to preserve context at boundaries
         };
-        var chunker = new DocumentTokenChunker(chunkerOptions);
+        var chunker = new SemanticSimilarityChunker(
+            embeddingGenerator,
+            chunkerOptions);
 
         // Create writer. dimensionCount must match the model that is being used to generate embeddings.
         using var writer = new VectorStoreWriter<string>(vectorStore, dimensionCount: EmbeddingModel.DIMENSION);
