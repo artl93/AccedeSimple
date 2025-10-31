@@ -15,18 +15,18 @@ public class ProcessService
     private readonly MessageService _messageService;
     private readonly IChatClient _chatClient;
     private readonly UserSettings _userSettings;
-    private readonly HttpClient _httpClient;
     private readonly AIAgent _policyAgent;
     private readonly IServiceProvider _serviceProvider;
     private readonly StateStore _stateStore;
     private readonly ILogger<ProcessService> _logger;
+    private readonly AIAgent _localGuide;
 
     public ProcessService(
         MessageService messageService,
         IChatClient chatClient,
         IOptions<UserSettings> userSettings,
-        IHttpClientFactory httpClientFactory,
         [FromKeyedServices("Policy")] AIAgent policyAgent,
+        [FromKeyedServices("LocalGuide")] AIAgent localGuide,
         IServiceProvider serviceProvider,
         StateStore stateStore,
         ILogger<ProcessService> logger)
@@ -34,11 +34,11 @@ public class ProcessService
         _messageService = messageService;
         _chatClient = chatClient;
         _userSettings = userSettings.Value;
-        _httpClient = httpClientFactory.CreateClient("LocalGuide");
         _policyAgent = policyAgent;
         _serviceProvider = serviceProvider;
         _stateStore = stateStore;
         _logger = logger;
+        _localGuide = localGuide;
     }
 
     public async Task ActAsync(UserIntent userIntent, ChatItem userInput)
@@ -53,14 +53,8 @@ public class ProcessService
 
             case UserIntent.AskLocalGuide:
                 // Handle local guide inquiries
-                var builder = new UriBuilder(_httpClient.BaseAddress)
-                {
-                    Path = "attractions",
-                    Query = $"query={Uri.EscapeDataString(userInput.Text)}"
-                };
-                var localGuideRequest = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Post, builder.Uri));
-                var body = await localGuideRequest.Content.ReadAsStringAsync();
-                await _messageService.AddMessageAsync(new AssistantResponse(body), _userSettings.UserId);
+                var localGuideResponse = await _localGuide.RunAsync(userInput.ToChatMessage());
+                await _messageService.AddMessageAsync(new AssistantResponse(localGuideResponse.Text), _userSettings.UserId);
                 break;
 
             case UserIntent.AskPolicyQuestions:
