@@ -6,6 +6,7 @@ using AccedeSimple.Domain;
 using AccedeSimple.Service.Services;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
@@ -59,6 +60,9 @@ public static class Endpoints
             [FromServices] ProcessService processService,
             [FromServices] ILogger<Program> logger,
             TripRequestResult result,
+            [FromServices] MessageService messageService,
+            [FromServices] IOptions<UserSettings> userSettings,
+            [FromServices] StateStore store,
             CancellationToken cancellationToken) =>
         {
             try
@@ -72,8 +76,12 @@ public static class Endpoints
                     return Results.BadRequest("TripId is required");
                 }
 
-                // Resume the workflow with the admin's approval decision
-                await processService.ResumeWorkflowWithApprovalAsync(result.TripId, result);
+                store.GetAs<List<TripRequest>>("trip-requests")?.RemoveAll(req => req.TripId == result.TripId);
+
+                var message = new TripRequestDecisionChatItem(result);
+                // TODO: UserId should probably come from elsewhere since this is from the admin account (once it exists)
+                await messageService.AddMessageAsync(message, userSettings.Value.UserId);
+
                 return Results.Ok();
             }
             catch (Exception ex)
@@ -144,13 +152,14 @@ public static class Endpoints
 
         // Handle incoming messages
         group.MapPost("/messages", async (
-            HttpRequest request, 
-            [FromKeyedServices("uploads")] BlobServiceClient blobServiceClient, 
-            [FromServices] IChatClient chatClient, 
+            HttpRequest request,
+            [FromKeyedServices("uploads")] BlobServiceClient blobServiceClient,
+            [FromServices] IChatClient chatClient,
             [FromServices] MessageService messageService,
-            [FromServices] ProcessService processService, 
+            [FromServices] ProcessService processService,
             [FromServices] ChatStream chatStream,
-            [FromServices] IOptions<UserSettings> userSettings, 
+            [FromServices] IOptions<UserSettings> userSettings,
+            [FromKeyedServices("TravelWorkflowV2")] Microsoft.Agents.AI.Workflows.Workflow travelWorkflow,
             CancellationToken cancellationToken) => 
         {
 
@@ -167,13 +176,7 @@ public static class Endpoints
             
             await messageService.AddMessageAsync(userMessage, userSettings.Value.UserId);
 
-            // Identify the user's intent
-            var reason = await chatClient.GetResponseAsync<UserIntent>($"Get the user intent: {userMessage.Text}");
-            
-            reason.TryGetResult(out var intentResult);
-
-            // Add the message to the chat stream
-            await processService.ActAsync(intentResult, userMessage);
+            var run = await InProcessExecution.RunAsync(travelWorkflow, userMessage.ToChatMessage(), cancellationToken: cancellationToken);
 
             return Results.Ok();
         });
@@ -191,7 +194,7 @@ public static class Endpoints
 
             if (!history.TryGetValue(userId, out var messages))
             {
-                return Results.NotFound("No messages found for the specified user ID");
+                return Results.Ok<List<ChatItem>>([]);
             }
 
             var visibleMessages = messages.Where(m => m.IsUserVisible).ToList();
@@ -232,6 +235,7 @@ public static class Endpoints
         group.MapPost("/select-itinerary", async (
             [FromServices] MessageService messageService,
             [FromServices] ProcessService processService,
+            [FromServices] StateStore stateStore,
             [FromServices] ILogger<Program> logger,
             [FromServices] IOptions<UserSettings> userSettings,
             SelectItineraryRequest request,
@@ -239,16 +243,46 @@ public static class Endpoints
         {
             try
             {
+                // Check if this is a V2 workflow selection (trip options stored in StateStore)
+                var tripOptions = stateStore.GetAs<List<TripOption>>($"trip-options:{request.TripId}");
 
-                var input = new ItinerarySelectedChatItem($"I have selected an itinerary option. {request.OptionId}")
+                if (tripOptions == null)
                 {
-                    TripId = request.TripId,
-                    OptionId = request.OptionId
-                };
+                    return Results.BadRequest("Selected option not found");
+                }
 
-                await messageService.AddMessageAsync(input, userSettings.Value.UserId);
+                var selectedOption = tripOptions.FirstOrDefault(opt => opt.OptionId == request.OptionId);
 
-                await processService.ActAsync(UserIntent.StartTripApproval, input);
+                if (selectedOption == null)
+                {
+                    logger.LogWarning("Selected option {OptionId} not found for trip {TripId}", request.OptionId, request.TripId);
+                    return Results.BadRequest("Selected option not found");
+                }
+
+                // Send confirmation message
+                await messageService.AddMessageAsync(
+                    new AssistantResponse($"You selected: {selectedOption.Description}. Processing your selection..."),
+                    userSettings.Value.UserId);
+
+                // Clean up stored options
+                stateStore.Delete($"trip-options:{request.TripId}");
+
+                var existingRequests = stateStore.GetAs<List<TripRequest>>("trip-requests") ?? new List<TripRequest>();
+
+                // Create trip request directly with the selected option
+                var tripRequest = new TripRequest(
+                    TripId: request.TripId,
+                    TripOption: selectedOption,
+                    AdditionalNotes: null
+                );
+
+                existingRequests.Add(tripRequest);
+                stateStore.Set("trip-requests", existingRequests);
+
+                // Send approval request message
+                await messageService.AddMessageAsync(
+                    new AssistantResponse($"Trip request created. Awaiting admin approval for trip {tripRequest.TripId}."),
+                    userSettings.Value.UserId);
 
                 return Results.Ok();
             }

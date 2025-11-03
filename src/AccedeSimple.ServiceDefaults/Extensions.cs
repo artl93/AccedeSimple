@@ -83,6 +83,7 @@ public static class Extensions
                     //.AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("Experimental.Microsoft.Extensions.AI*")
+                    .AddSource("Microsoft.Agents.AI.Workflows*")
                     .AddSource("Experimental.ModelContextProtocol");
             });
 

@@ -4,7 +4,6 @@ using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 using AccedeSimple.Service.Executors;
 using AccedeSimple.Service.Services;
-using Microsoft.SemanticKernel;
 using AccedeSimple.Domain;
 using ModelContextProtocol.Client;
 using Microsoft.Agents.AI.Workflows;
@@ -18,35 +17,54 @@ public static class Extensions
     {
         // Register executors
         services.AddTransient<TravelPlanningExecutor>();
-        services.AddTransient<TripRequestCreationExecutor>();
-        services.AddTransient<ApprovalResponseExecutor>();
 
-        // Build the main travel workflow with RequestPorts for human-in-the-loop
-        // This creates a unified workflow with checkpointing support
-        services.AddTransient<Microsoft.Agents.AI.Workflows.Workflow>(sp =>
+        // services.AddTransient<TripRequestCreationExecutor>();
+        // services.AddTransient<ApprovalResponseExecutor>();
+
+        // // Build the main travel workflow with RequestPorts for human-in-the-loop
+        // // This creates a unified workflow with checkpointing support
+        // services.AddKeyedTransient<Workflow>("TravelWorkflow", (sp, key) =>
+        // {
+        //     // Get all executors
+        //     var travelPlanning = sp.GetRequiredService<TravelPlanningExecutor>();
+        //     var tripRequestCreation = sp.GetRequiredService<TripRequestCreationExecutor>();
+        //     var approvalResponse = sp.GetRequiredService<ApprovalResponseExecutor>();
+
+        //     // Create RequestPorts for human-in-the-loop interactions
+        //     // UserSelectionPort: sends trip options to user, waits for their selection
+        //     var userSelectionPort = RequestPort.Create<List<TripOption>, ItinerarySelectedChatItem>("UserSelection");
+
+        //     // AdminApprovalPort: sends trip request to admin, waits for approval decision
+        //     var adminApprovalPort = RequestPort.Create<TripRequest, TripRequestResult>("AdminApproval");
+
+        //     // Build workflow: TravelPlanning → UserSelectionPort → TripRequestCreation → AdminApprovalPort → ApprovalResponse
+        //     var travelWorkflow = new WorkflowBuilder(travelPlanning)
+        //         .AddEdge(travelPlanning, userSelectionPort)
+        //         .AddEdge(userSelectionPort, tripRequestCreation)
+        //         .AddEdge(tripRequestCreation, adminApprovalPort)
+        //         .AddEdge(adminApprovalPort, approvalResponse)
+        //         .WithOutputFrom(approvalResponse)
+        //         .Build();
+
+        //     return travelWorkflow;
+        // });
+
+        services.AddTransient<PolicyExecutor>();
+        services.AddTransient<PolicyEvaluatorExecutor>();
+
+        services.AddKeyedTransient<Workflow>("TravelWorkflowV2", (sp, key) =>
         {
-            // Get all executors
+            var policyExecutor = sp.GetRequiredService<PolicyExecutor>();
             var travelPlanning = sp.GetRequiredService<TravelPlanningExecutor>();
-            var tripRequestCreation = sp.GetRequiredService<TripRequestCreationExecutor>();
-            var approvalResponse = sp.GetRequiredService<ApprovalResponseExecutor>();
+            var policyEvaluatorExecutor = sp.GetRequiredService<PolicyEvaluatorExecutor>();
 
-            // Create RequestPorts for human-in-the-loop interactions
-            // UserSelectionPort: sends trip options to user, waits for their selection
-            var userSelectionPort = RequestPort.Create<List<TripOption>, ItinerarySelectedChatItem>("UserSelection");
-
-            // AdminApprovalPort: sends trip request to admin, waits for approval decision
-            var adminApprovalPort = RequestPort.Create<TripRequest, TripRequestResult>("AdminApproval");
-
-            // Build workflow: TravelPlanning → UserSelectionPort → TripRequestCreation → AdminApprovalPort → ApprovalResponse
-            var travelWorkflow = new WorkflowBuilder(travelPlanning)
-                .AddEdge(travelPlanning, userSelectionPort)
-                .AddEdge(userSelectionPort, tripRequestCreation)
-                .AddEdge(tripRequestCreation, adminApprovalPort)
-                .AddEdge(adminApprovalPort, approvalResponse)
-                .WithOutputFrom(approvalResponse)
+            var workflow = new WorkflowBuilder(policyExecutor)
+                .AddEdge(policyExecutor, travelPlanning)
+                .AddEdge(travelPlanning, policyEvaluatorExecutor)
+                .WithOutputFrom(policyEvaluatorExecutor)
                 .Build();
 
-            return travelWorkflow;
+            return workflow;
         });
 
         return services;

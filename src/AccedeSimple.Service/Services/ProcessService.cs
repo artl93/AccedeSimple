@@ -73,7 +73,7 @@ public class ProcessService
                 // Start the travel workflow - await until it pauses at RequestPort
                 var tripId = Guid.NewGuid().ToString();
                 await RunOrResumeWorkflowAsync(
-                    workflow: _serviceProvider.GetRequiredService<Microsoft.Agents.AI.Workflows.Workflow>(),
+                    workflow: _serviceProvider.GetRequiredKeyedService<Workflow>("TravelWorkflow"),
                     workflowName: "travel workflow",
                     tripId: tripId,
                     data: userMessage);
@@ -82,7 +82,7 @@ public class ProcessService
             case UserIntent.StartTripApproval when userInput is ItinerarySelectedChatItem itinerarySelected:
                 // Resume the workflow from checkpoint with user's selection
                 await RunOrResumeWorkflowAsync<object>(
-                    workflow: _serviceProvider.GetRequiredService<Microsoft.Agents.AI.Workflows.Workflow>(),
+                    workflow: _serviceProvider.GetRequiredKeyedService<Workflow>("TravelWorkflow"),
                     workflowName: "travel workflow",
                     tripId: itinerarySelected.TripId,
                     data: itinerarySelected,
