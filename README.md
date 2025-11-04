@@ -51,8 +51,9 @@ To run the application, ensure the following tools and frameworks are installed:
 - [UV](https://docs.astral.sh/uv/)
 - [Visual Studio Code](https://code.visualstudio.com/)
 - [Azure AI Foundry Project](https://learn.microsoft.com/azure/ai-foundry/how-to/create-projects) within the above subscription and resource group (and within an AI Foundry Hub) that can be used for content safety evaluations. See [Setting Up Azure AI Foundry for Safety Evaluations](https://devblogs.microsoft.com/dotnet/evaluating-ai-content-safety/#setting-up-azure-ai-foundry-for-safety-evaluations).
-   - [Azure OpenAI Resource](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource?pivots=web-portal) with the `gpt-4.1` and `text-embedding-3-small` model deployed and [permissions](https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control).
+   - [Azure OpenAI Resource](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource?pivots=web-portal) with the `gpt-4.1`, `gpt-4o-mini`, and `text-embedding-3-small` models deployed and [permissions](https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control).
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd?tabs=winget-windows%2Cbrew-mac%2Cscript-linux&pivots=os-windows) (if applicable)
+- [Docker Desktop](https://docker.com) for local deployment
 
 ## Quick Start
 
@@ -63,7 +64,7 @@ To run the application, ensure the following tools and frameworks are installed:
    cd AccedeSimple
    ```
 
-2. **Install dependencies**:
+1. **Install dependencies**:
    Ensure you have the required .NET SDK installed, then restore dependencies:
 
    **.NET**
@@ -79,18 +80,32 @@ To run the application, ensure the following tools and frameworks are installed:
    uv sync
    ```
 
-3. **Configure user secrets**
+1. **Set up your Azure resources**
+In your Azure subscription create the following (as noted above):
+- An Azure Resource Group (make note of the name) 
+- AI Foundry Project (make note of the name, endpoint, and region)
+   - Choose to use Azure Identity or Tokens
+- Deploy the following models and accept the default deployment names
+  - `gpt-4o-mini`
+  - `gpt-4.1`
+  - `text-embedding-3-small`
+- Make note note of your subscription ID 
 
-   1. Navigate to the *_src/AccedeSimple.AppHost* project.
-   1. Set the following user secrets. i.e. `dotnet user-secrets set "AzureOpenAI:ResourceGroup" "YOUR-VALUE"`
-      - **AzureOpenAI:ResourceGroup** - The name of your Azure Resource Group where the OpenAI Resource is deployed to
-      - **AzureOpenAI:ResourceName** - The name of your Azure OpenAI Resource
-      - **AzureOpenAI:Endpoint** - The endpoint for your Azure OpenAI Resource
-      - **Azure:SubscriptionId** - The subscription ID you deployed your resources to 
-      - **Azure:ResourceGroup** - The name of your Azure OpenAI Resource is deployed to.
-      - **Azure:Location** - The location you deployed your Azure OpenAI Resource to.
-      - **Azure:AllowResourceGroupCreation**  - Set to *false* to use existing resource.
-      - **AzureAIFoundry:Project** - The name of the Azure AI Foundry Project.
+1. **Configure user secrets**
+   
+   1. Navigate to the *_src/AccedeSimple.AppHost* project
+   1. Set each secret individually using: `dotnet user-secrets set "KEY" "VALUE"`
+   
+   Required secrets:
+   - **AzureOpenAI:ResourceGroup** - The name of your Azure Resource Group where the OpenAI Resource is deployed to
+   - **AzureOpenAI:ResourceName** - The name of your Azure OpenAI Resource
+   - **AzureOpenAI:Endpoint** - The endpoint for your Azure OpenAI Resource
+   - **Azure:SubscriptionId** - The subscription ID you deployed your resources to 
+   - **Azure:ResourceGroup** - The name of your Azure OpenAI Resource is deployed to
+   - **Azure:Location** - The region you deployed your Azure OpenAI Resource to
+   - **Azure:AllowResourceGroupCreation** - Set to *false* to use existing resource
+   - **AzureAIFoundry:Project** - The name of the Azure AI Foundry Project
+   1. Set the MODEL_NAME environment variable to the name of the deployed model in Azure OpenAI endpoint (defaults to `gpt-4o-mini`)
 
 ### Running the app
 

@@ -3,7 +3,7 @@
 - [X] Create agent to trigger workflows
 - [X] Refactor into web service
 - [X] Add Aspire
-- [X] Confiture OTEL
+- [X] Configure OTEL
 - [X] Add MCP Server
 - [X] Simplify domain model
 - [X] Add UI
