@@ -36,6 +36,9 @@ var pythonApp =
         .WithHttpEndpoint(env: "PORT", port: 8000, isProxied: false)
         .WithEnvironment("AZURE_OPENAI_ENDPOINT", azureOpenAIEndpoint)
         .WithEnvironment("MODEL_NAME", modelName)
+        .WithEnvironment("ENABLE_OTEL", "true")
+        .WithEnvironment("OTEL_SERVICE_NAME", "localguide")
+        .WithEnvironment("OTEL_RESOURCE_ATTRIBUTES", "service.name=localguide,service.version=1.0.0")
         .WithOtlpExporter()
         .WaitFor(openai);
 

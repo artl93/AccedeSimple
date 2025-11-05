@@ -9,13 +9,9 @@ using AccedeSimple.Service.Services;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using Microsoft.Agents.AI;
+using AccedeSimple.Service.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddHttpClient("LocalGuide", c =>
-    {
-        c.BaseAddress = new Uri("http://localguide");
-    });
 
 // Load configuration
 builder.Services.Configure<UserSettings>(builder.Configuration.GetSection("UserSettings"));
@@ -61,6 +57,9 @@ builder.AddAIAgent("Policy", (sp, name) =>
             Provide a summary of the policy based on the users' input and the search results from the policy documents.
             """, name, tools: [AIFunctionFactory.Create(sp.GetRequiredService<SearchService>().SearchAsync)]);
 });
+
+// Register LocalGuide Python agent via A2A protocol
+builder.AddAIAgentFromA2A("LocalGuide", new Uri("http://localguide"));
 
 builder.Services.AddTravelWorkflow();
 
