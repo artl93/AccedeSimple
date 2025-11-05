@@ -55,7 +55,7 @@ public static class Extensions
 
     public static IServiceCollection AddMcpClient(this IServiceCollection services)
     {
-        services.AddTransient<IMcpClient>(sp =>
+        services.AddTransient<McpClient>(sp =>
         {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
@@ -69,15 +69,14 @@ public static class Extensions
 
             var serviceName = "mcpserver";
             var name = $"services__{serviceName}__http__0";
-            var url = Environment.GetEnvironmentVariable(name) + "/sse";
+            var baseUrl = Environment.GetEnvironmentVariable(name);
 
-            var clientTransport = new SseClientTransport(new (){
-                Name = "AspNetCoreSse",
-                Endpoint = new Uri(url)
-            },loggerFactory);
+            var clientTransport = new HttpClientTransport(new HttpClientTransportOptions {
+                Endpoint = new Uri(baseUrl!)
+            }, loggerFactory);
 
             // Not ideal pattern but should be enough to get it working.
-            var mcpClient = McpClientFactory.CreateAsync(clientTransport, mcpClientOptions, loggerFactory).GetAwaiter().GetResult();
+            var mcpClient = McpClient.CreateAsync(clientTransport, mcpClientOptions, loggerFactory).GetAwaiter().GetResult();
 
             return mcpClient;
         });

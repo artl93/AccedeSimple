@@ -11,13 +11,13 @@ namespace AccedeSimple.Service.Executors;
 public class TravelPlanningExecutor(
     ILogger<TravelPlanningExecutor> logger,
     IChatClient chatClient,
-    IMcpClient mcpClient,
+    McpClient mcpClient,
     MessageService messageService,
     IOptions<UserSettings> userSettings) : Executor<UserMessage, List<TripOption>>("TravelPlanningExecutor")
 {
     private readonly IChatClient _chatClient = chatClient;
     private readonly ILogger<TravelPlanningExecutor> _logger = logger;
-    private readonly IMcpClient _mcpClient = mcpClient;
+    private readonly McpClient _mcpClient = mcpClient;
     private readonly MessageService _messageService = messageService;
     private readonly UserSettings _userSettings = userSettings.Value;
 
